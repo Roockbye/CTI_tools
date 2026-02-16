@@ -145,6 +145,12 @@ class CollectionEngine:
                     elif item_type == "malware" and item.get("malware_info"):
                         self._store_malware(session, item)
 
+                    # Sérialiser raw_data : les datetime ne sont pas JSON-sérialisables
+                    raw_data = item.get("raw_data")
+                    if raw_data:
+                        from cti_sentinel.collectors.base import BaseCollector
+                        raw_data = BaseCollector._make_json_safe(raw_data)
+
                     # Toujours créer un article pour la timeline
                     article = self.db.add_article(
                         session,
@@ -156,7 +162,7 @@ class CollectionEngine:
                         author=item.get("author"),
                         published_at=item.get("published_at"),
                         status=ArticleStatus.NEW,
-                        raw_data=item.get("raw_data"),
+                        raw_data=raw_data,
                     )
 
                     if article:
@@ -184,6 +190,7 @@ class CollectionEngine:
 
                 except Exception as e:
                     logger.warning("Erreur stockage item: %s", str(e))
+                    session.rollback()  # Réinitialiser la transaction pour les items suivants
 
         return stored
 

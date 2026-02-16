@@ -313,6 +313,17 @@ class BaseCollector(ABC):
             self.stats["end_time"] = datetime.now(timezone.utc)
             await self.close()
 
+    @staticmethod
+    def _make_json_safe(obj: Any) -> Any:
+        """Convertit récursivement les objets non-JSON-sérialisables (datetime, etc.)."""
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, dict):
+            return {k: BaseCollector._make_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [BaseCollector._make_json_safe(v) for v in obj]
+        return obj
+
     def normalize_item(self, raw_data: dict) -> Dict[str, Any]:
         """
         Normalise un item brut dans le format standard.
@@ -337,5 +348,5 @@ class BaseCollector(ABC):
             "source_category": self.category,
             "author": raw_data.get("author"),
             "published_at": raw_data.get("published_at"),
-            "raw_data": raw_data,
+            "raw_data": self._make_json_safe(raw_data),
         }

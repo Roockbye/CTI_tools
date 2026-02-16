@@ -97,13 +97,13 @@ class CTIScheduler:
                 # Articles traités non encore évalués pour alertes
                 recent = (
                     session.query(Article)
-                    .filter(Article.status == ArticleStatus.processed)
+                    .filter(Article.status == ArticleStatus.PROCESSED)
                     .order_by(Article.collected_at.desc())
                     .limit(100)
                     .all()
                 )
                 for article in recent:
-                    await self.alert_manager.evaluate_article(session, article)
+                    await self.alert_manager.evaluate_article(article)
             logger.info(f"✅ [Scheduler] {len(recent)} articles évalués pour alertes")
         except Exception as e:
             logger.error(f"❌ [Scheduler] Erreur alertes: {e}")

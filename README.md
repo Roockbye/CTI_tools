@@ -28,6 +28,11 @@
 
 CTI Sentinel est un outil **100% local** de veille en cybersécurité et géopolitique, conçu pour l'apprentissage et la formation personnelle en CTI. Il collecte, traite et corrèle automatiquement les informations de menaces provenant de multiples sources ouvertes.
 
+Interface	URL
+Dashboard	http://localhost:8501
+API Swagger	http://localhost:8000/docs
+API ReDoc	http://localhost:8000/redoc
+
 ### Pourquoi CTI Sentinel ?
 
 - 🔒 **100% local** — Aucune donnée envoyée vers le cloud (sauf les API publiques de collecte)
