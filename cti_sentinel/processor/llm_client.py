@@ -29,6 +29,27 @@ class OllamaClient:
         self.max_retries = self.config.get("llm.ollama.max_retries", 3)
         self._session: Optional[aiohttp.ClientSession] = None
 
+        # ── SÉCURITÉ : vérifier que le LLM est bien LOCAL ────────────────
+        # Les données CTI (articles, IOCs, contenu) sont envoyées au LLM.
+        # C'est acceptable UNIQUEMENT si le LLM tourne en local (Ollama).
+        # Si l'URL pointe vers un service cloud, les données quitteraient
+        # la machine → violation de confidentialité.
+        from urllib.parse import urlparse
+        parsed = urlparse(self.base_url)
+        local_hosts = {"localhost", "127.0.0.1", "::1", "ollama"}  # "ollama" = Docker
+        if parsed.hostname not in local_hosts:
+            logger.critical(
+                "⛔ ATTENTION SÉCURITÉ : l'URL LLM (%s) ne pointe PAS vers localhost ! "
+                "Toutes les données CTI (articles, IOCs, contenu) seront envoyées "
+                "à ce serveur distant. Risque de fuite de données.",
+                self.base_url,
+            )
+            raise ValueError(
+                f"LLM distant détecté ({self.base_url}). "
+                "Pour des raisons de confidentialité, seuls les LLM locaux sont autorisés. "
+                "Utilisez Ollama sur localhost:11434 ou modifiez ce contrôle en connaissance de cause."
+            )
+
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=self.timeout)

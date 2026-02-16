@@ -14,7 +14,7 @@ services:
     container_name: cti-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     deploy:
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
     command: python main.py api --host 0.0.0.0 --port 8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - OLLAMA_HOST=http://ollama:11434
     env_file:
@@ -83,7 +83,7 @@ services:
     restart: unless-stopped
     command: python main.py dashboard --port 8501
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     environment:
       - CTI_API_URL=http://api:8000/api
     env_file:

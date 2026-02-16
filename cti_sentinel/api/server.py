@@ -49,14 +49,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS
+# CORS — restreint au dashboard local uniquement
 cors_origins = config.get("api.cors_origins", ["http://localhost:8501"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,  # Pas de cookies/tokens cross-origin
+    allow_methods=["GET", "POST", "PATCH"],  # Pas de wildcard
+    allow_headers=["Content-Type", "Authorization"],  # Headers explicites
 )
 
 
@@ -662,7 +662,9 @@ def _article_to_response(article: Article) -> ArticleResponse:
 def start_api():
     """Démarre le serveur API."""
     import uvicorn
-    host = config.get("api.host", "0.0.0.0")
+    # 127.0.0.1 par défaut — accès local uniquement.
+    # Utiliser 0.0.0.0 UNIQUEMENT en Docker ou si auth activée.
+    host = config.get("api.host", "127.0.0.1")
     port = config.get("api.port", 8000)
     uvicorn.run(app, host=host, port=port)
 

@@ -188,18 +188,27 @@ class ProcessingEngine:
                 system=CTI_SYSTEM_PROMPT,
             )
             if ioc_result:
-                # Ajouter les IOCs du LLM
+                # Ajouter les IOCs du LLM — UNIQUEMENT si présents dans le texte source.
+                # Les LLM peuvent halluciner des IOCs ; on vérifie que la valeur
+                # apparaît réellement dans le contenu original de l'article.
+                source_text = f"{title}\n{content}".lower()
                 for ioc_data in ioc_result.get("iocs", []):
-                    if ioc_data.get("value"):
+                    ioc_value = ioc_data.get("value", "")
+                    if ioc_value and ioc_value.lower() in source_text:
                         ioc = self.db.add_ioc(
                             session,
                             ioc_type=ioc_data.get("type", "url"),
-                            value=ioc_data["value"],
+                            value=ioc_value,
                             context=ioc_data.get("context", ""),
                             source=f"{article.source_name}_llm",
                         )
                         if ioc and ioc not in article.iocs:
                             article.iocs.append(ioc)
+                    elif ioc_value:
+                        logger.debug(
+                            "IOC LLM ignoré (non trouvé dans le texte source): %s",
+                            ioc_value[:60],
+                        )
 
                 # Threat actors
                 for ta_name in ioc_result.get("threat_actors", []):

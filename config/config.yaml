@@ -421,7 +421,7 @@ watched_regions:
 # DASHBOARD
 # ============================================================================
 dashboard:
-  host: "0.0.0.0"
+  host: "127.0.0.1"  # Accès local uniquement
   port: 8501
   theme: "dark"  # dark, light
   refresh_interval: 300  # 5 minutes
@@ -435,7 +435,7 @@ dashboard:
 # ============================================================================
 api:
   enabled: true
-  host: "0.0.0.0"
+  host: "127.0.0.1"  # Accès local uniquement (0.0.0.0 en Docker avec auth)
   port: 8000
   cors_origins: ["http://localhost:8501"]
   auth:

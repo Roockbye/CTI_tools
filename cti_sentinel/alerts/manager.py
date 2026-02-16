@@ -152,39 +152,42 @@ class AlertManager:
             logger.warning("Canal d'alerte inconnu: %s", channel)
             return False
 
+    @staticmethod
+    def _sanitize_for_shell(text: str) -> str:
+        """Supprime les caractères dangereux pour éviter toute injection shell."""
+        import re
+        # Ne garder que alphanum, espaces, ponctuation sûre, accents
+        return re.sub(r'[^\w\s.,;:!?\-()@#/àâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ]', '', text)
+
     def _send_desktop_notification(self, message: str, article: Article) -> bool:
         """Envoie une notification desktop (Linux/Mac/Windows)."""
-        title = "🚨 CTI Sentinel - Alerte"
-        body = message[:250]
+        title = "CTI Sentinel - Alerte"
+        # Sanitize pour éviter toute injection de commande
+        body = self._sanitize_for_shell(message[:200])
 
         try:
             if sys.platform == "linux":
+                # notify-send avec liste d'arguments (pas de shell=True)
                 subprocess.run(
                     ["notify-send", "-u", "critical", title, body],
                     timeout=5, check=False,
                 )
             elif sys.platform == "darwin":
+                # osascript : passer via stdin pour éviter l'injection
+                script = 'display notification (do shell script "cat") with title "CTI Sentinel - Alerte"'
                 subprocess.run(
-                    ["osascript", "-e",
-                     f'display notification "{body}" with title "{title}"'],
+                    ["osascript", "-e", script],
+                    input=body.encode("utf-8"),
                     timeout=5, check=False,
                 )
             elif sys.platform == "win32":
-                # Windows 10+ toast notification via PowerShell
-                ps_script = (
-                    f'[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, '
-                    f'ContentType = WindowsRuntime] > $null; '
-                    f'$template = [Windows.UI.Notifications.ToastNotificationManager]::'
-                    f'GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); '
-                    f'$template.GetElementsByTagName("text")[0].AppendChild($template.CreateTextNode("{title}")); '
-                    f'$template.GetElementsByTagName("text")[1].AppendChild($template.CreateTextNode("{body}")); '
-                    f'[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("CTI Sentinel")'
-                    f'.Show($template)'
-                )
-                subprocess.run(
-                    ["powershell", "-Command", ps_script],
-                    timeout=10, check=False,
-                )
+                # Windows : utiliser plyer ou un simple message (pas PowerShell inline)
+                try:
+                    from plyer import notification as plyer_notif
+                    plyer_notif.notify(title=title, message=body, timeout=10)
+                except ImportError:
+                    logger.debug("plyer non installé, notification Windows ignorée")
+                    return False
             logger.info("📢 Notification desktop envoyée")
             return True
         except Exception as e:
