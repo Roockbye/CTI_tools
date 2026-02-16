@@ -1,0 +1,526 @@
+# ============================================================================
+# CTI SENTINEL - Configuration Principale
+# ============================================================================
+# Outil local de veille CTI/Géopolitique
+# Version: 1.0.0
+# ============================================================================
+
+general:
+  app_name: "CTI Sentinel"
+  version: "1.0.0"
+  language: "fr"  # fr, en
+  timezone: "Europe/Paris"
+  data_dir: "./data"
+  logs_dir: "./logs"
+  reports_dir: "./reports"
+  exports_dir: "./exports"
+  cache_dir: "./cache"
+  debug: false
+
+# ============================================================================
+# BASE DE DONNÉES
+# ============================================================================
+database:
+  type: "sqlite"  # sqlite ou postgresql
+  sqlite:
+    path: "./data/cti_sentinel.db"
+    journal_mode: "WAL"
+  postgresql:
+    host: "localhost"
+    port: 5432
+    database: "cti_sentinel"
+    user: "cti_user"
+    password: "${DB_PASSWORD}"
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Tous les jours à 2h
+    retention_days: 30
+    path: "./data/backups"
+
+# ============================================================================
+# LLM LOCAL (Ollama)
+# ============================================================================
+llm:
+  provider: "ollama"
+  ollama:
+    base_url: "http://localhost:11434"
+    model: "mistral:7b"  # ou llama3:8b, mixtral:8x7b
+    fallback_model: "llama3:8b"
+    timeout: 120
+    max_retries: 3
+    temperature: 0.1
+    max_tokens: 4096
+    context_window: 8192
+  batch_size: 10  # Nombre d'articles traités par batch
+  cache_responses: true
+  cache_ttl: 86400  # 24h en secondes
+
+# ============================================================================
+# SOURCES DE COLLECTE
+# ============================================================================
+sources:
+  # --- Vulnérabilités ---
+  vulnerabilities:
+    nvd:
+      enabled: true
+      type: "api"
+      base_url: "https://services.nvd.nist.gov/rest/json/cves/2.0"
+      api_key: "${NVD_API_KEY}"  # Optionnel mais recommandé
+      rate_limit: 5  # requêtes par 30 secondes (sans clé)
+      schedule: "*/120"  # toutes les 2h
+      priority: "high"
+
+    cert_fr:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.cert.ssi.gouv.fr/alerte/feed/"
+        - "https://www.cert.ssi.gouv.fr/avis/feed/"
+      schedule: "*/120"
+      priority: "high"
+
+    vulners:
+      enabled: false  # Désactivé: pas de collecteur implémenté + nécessite clé API payante
+      type: "api"
+      base_url: "https://vulners.com/api/v3"
+      api_key: "${VULNERS_API_KEY}"
+      rate_limit: 10
+      schedule: "*/180"
+      priority: "medium"
+
+    exploit_db:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.exploit-db.com/rss.xml"
+      schedule: "*/360"
+      priority: "medium"
+
+  # --- Threat Intelligence ---
+  threat_intel:
+    alienvault_otx:
+      enabled: true
+      type: "api"
+      base_url: "https://otx.alienvault.com/api/v1"
+      api_key: "${OTX_API_KEY}"
+      rate_limit: 20
+      schedule: "*/360"
+      priority: "high"
+
+    urlhaus:
+      enabled: true
+      type: "api"
+      base_url: "https://urlhaus-api.abuse.ch/v1"
+      api_key: null
+      rate_limit: 10
+      schedule: "*/360"
+      priority: "medium"
+
+    malware_bazaar:
+      enabled: true
+      type: "api"
+      base_url: "https://mb-api.abuse.ch/api/v1"
+      api_key: null
+      rate_limit: 10
+      schedule: "*/360"
+      priority: "medium"
+
+    threatfox:
+      enabled: true
+      type: "api"
+      base_url: "https://threatfox-api.abuse.ch/api/v1"
+      api_key: null
+      rate_limit: 10
+      schedule: "*/360"
+      priority: "medium"
+
+    openphish:
+      enabled: false  # Désactivé: pas de collecteur implémenté, feed premium requis
+      type: "feed"
+      urls:
+        - "https://openphish.com/feed.txt"
+      schedule: "*/360"
+      priority: "low"
+
+    phishtank:
+      enabled: false  # Désactivé: pas de collecteur implémenté + inscription requise
+      type: "api"
+      base_url: "https://data.phishtank.com/data"
+      api_key: "${PHISHTANK_API_KEY}"
+      schedule: "*/720"
+      priority: "low"
+
+  # --- APT / Groupes ---
+  apt_groups:
+    mitre_attack:
+      enabled: true
+      type: "api"
+      base_url: "https://raw.githubusercontent.com/mitre/cti/master"
+      schedule: "weekly"
+      priority: "high"
+
+    malpedia:
+      enabled: false  # Désactivé: pas de collecteur implémenté + clé API requise
+      type: "api"
+      base_url: "https://malpedia.caad.fkie.fraunhofer.de/api"
+      api_key: "${MALPEDIA_API_KEY}"
+      rate_limit: 5
+      schedule: "daily"
+      priority: "medium"
+
+  # --- Actualités Cybersécurité ---
+  news:
+    bleeping_computer:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.bleepingcomputer.com/feed/"
+      schedule: "*/480"
+      priority: "medium"
+
+    the_hacker_news:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://feeds.feedburner.com/TheHackersNews"
+      schedule: "*/480"
+      priority: "medium"
+
+    krebs_on_security:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://krebsonsecurity.com/feed/"
+      schedule: "*/720"  # 12h — blog personnel, pas de surcharge
+      priority: "medium"
+
+    dark_reading:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.darkreading.com/rss.xml"
+      schedule: "*/480"
+      priority: "medium"
+
+    schneier:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.schneier.com/feed/"
+      schedule: "*/720"  # 12h — blog personnel, publication rare
+      priority: "low"
+
+  # --- Géopolitique Cyber ---
+  geopolitics:
+    cyberscoop:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://cyberscoop.com/feed/"
+      schedule: "*/480"
+      priority: "medium"
+
+    the_record:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://therecord.media/feed/"
+      schedule: "*/480"
+      priority: "medium"
+
+    security_affairs:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://securityaffairs.com/feed"
+      schedule: "*/480"
+      priority: "medium"
+
+  # --- Rapports & Recherche ---
+  reports:
+    mandiant:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.mandiant.com/resources/blog/rss.xml"
+      schedule: "daily"
+      priority: "high"
+
+    crowdstrike:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.crowdstrike.com/blog/feed/"
+      schedule: "daily"
+      priority: "high"
+
+    sentinel_one:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://www.sentinelone.com/feed/"
+      schedule: "daily"
+      priority: "medium"
+
+    talos:
+      enabled: true
+      type: "rss"
+      urls:
+        - "https://blog.talosintelligence.com/feeds/posts/default"
+      schedule: "daily"
+      priority: "high"
+
+# ============================================================================
+# TRAITEMENT ET ANALYSE
+# ============================================================================
+processing:
+  deduplication:
+    enabled: true
+    similarity_threshold: 0.85  # Cosine similarity
+    window_hours: 72  # Fenêtre de comparaison
+
+  ioc_extraction:
+    enabled: true
+    types:
+      - "ipv4"
+      - "ipv6"
+      - "domain"
+      - "url"
+      - "md5"
+      - "sha1"
+      - "sha256"
+      - "email"
+      - "cve"
+      - "yara"
+
+  enrichment:
+    enabled: true
+    auto_cvss: true
+    auto_epss: true
+    auto_exploit_check: true
+    virustotal:
+      enabled: false
+      api_key: "${VT_API_KEY}"
+      rate_limit: 4  # requêtes par minute (API gratuite)
+    shodan:
+      enabled: false
+      api_key: "${SHODAN_API_KEY}"
+
+  severity_scoring:
+    weights:
+      cvss: 0.3
+      epss: 0.2
+      exploit_available: 0.2
+      in_the_wild: 0.2
+      sector_relevance: 0.1
+
+# ============================================================================
+# ALERTES
+# ============================================================================
+alerts:
+  enabled: true
+  desktop_notifications: true
+
+  discord:
+    enabled: false
+    webhook_url: "${DISCORD_WEBHOOK}"
+
+  telegram:
+    enabled: false
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK}"
+
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "${EMAIL_USER}"
+    password: "${EMAIL_PASSWORD}"
+    recipients:
+      - "your-email@example.com"
+    daily_digest: true
+    digest_time: "08:00"
+
+  rules:
+    - name: "CVE critique"
+      condition: "severity == 'CRITIQUE' and type == 'vulnerability'"
+      channels: ["desktop", "discord"]
+      cooldown: 3600  # 1h entre alertes similaires
+
+    - name: "0-day exploité"
+      condition: "'0-day' in tags or 'zero-day' in tags"
+      channels: ["desktop", "discord", "telegram"]
+      cooldown: 1800
+
+    - name: "APT ciblant la France"
+      condition: "'france' in targets or 'europe' in targets"
+      channels: ["desktop", "discord"]
+      cooldown: 7200
+
+    - name: "Ransomware majeur"
+      condition: "'ransomware' in categories and severity in ('CRITIQUE', 'HAUTE')"
+      channels: ["desktop"]
+      cooldown: 3600
+
+    - name: "Technologies surveillées"
+      condition: "any(tech in content for tech in watched_technologies)"
+      channels: ["desktop"]
+      cooldown: 7200
+
+# ============================================================================
+# TECHNOLOGIES SURVEILLÉES
+# ============================================================================
+watched_technologies:
+  - "Linux"
+  - "Windows Server"
+  - "Apache"
+  - "Nginx"
+  - "Docker"
+  - "Kubernetes"
+  - "Python"
+  - "PostgreSQL"
+  - "MySQL"
+  - "WordPress"
+  - "Active Directory"
+  - "Exchange"
+  - "Office 365"
+  - "Azure"
+  - "AWS"
+  - "VMware"
+  - "Fortinet"
+  - "Palo Alto"
+  - "Cisco"
+  - "Citrix"
+
+# ============================================================================
+# SECTEURS D'INTÉRÊT
+# ============================================================================
+watched_sectors:
+  - "finance"
+  - "santé"
+  - "énergie"
+  - "gouvernement"
+  - "télécommunications"
+  - "défense"
+  - "industrie"
+
+# ============================================================================
+# ZONES GÉOGRAPHIQUES D'INTÉRÊT
+# ============================================================================
+watched_regions:
+  - "France"
+  - "Europe"
+  - "OTAN"
+  - "Moyen-Orient"
+
+# ============================================================================
+# DASHBOARD
+# ============================================================================
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  theme: "dark"  # dark, light
+  refresh_interval: 300  # 5 minutes
+  max_items_per_page: 50
+  default_date_range: 7  # jours
+  map_center: [46.603354, 1.888334]  # France
+  map_zoom: 5
+
+# ============================================================================
+# API REST
+# ============================================================================
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["http://localhost:8501"]
+  auth:
+    enabled: false
+    api_key: "${API_KEY}"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+
+# ============================================================================
+# SCHEDULER
+# ============================================================================
+scheduler:
+  enabled: true
+  daily_report:
+    enabled: true
+    time: "07:00"
+    format: "markdown"  # markdown, pdf, html
+  weekly_report:
+    enabled: true
+    day: "monday"
+    time: "08:00"
+  cleanup:
+    enabled: true
+    retention_days: 90
+    schedule: "0 3 * * 0"  # Dimanche 3h
+
+# ============================================================================
+# LOGS
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file:
+    enabled: true
+    path: "./logs/cti_sentinel.log"
+    max_size: "50MB"
+    backup_count: 5
+    rotation: "midnight"
+  console:
+    enabled: true
+    colorize: true
+
+# ============================================================================
+# APPRENTISSAGE
+# ============================================================================
+learning:
+  flashcards:
+    enabled: true
+    auto_generate: true
+    max_per_day: 10
+  quiz:
+    enabled: true
+    daily: true
+    questions_count: 5
+  scenario_generator:
+    enabled: true
+    difficulty_levels: ["débutant", "intermédiaire", "avancé"]
+
+# ============================================================================
+# CACHE
+# ============================================================================
+cache:
+  enabled: true
+  backend: "file"  # file, redis
+  ttl: 3600  # 1h par défaut
+  max_size: "500MB"
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+
+# ============================================================================
+# EXPORT
+# ============================================================================
+export:
+  stix:
+    enabled: true
+    version: "2.1"
+  csv:
+    enabled: true
+    delimiter: ","
+  json:
+    enabled: true
+    pretty: true
+  pdf:
+    enabled: true
+    template: "./templates/report_template.html"

@@ -1,0 +1,41 @@
+# ============================================================================
+# CTI Sentinel - Dépendances Python
+# ============================================================================
+
+# --- Core ---
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# --- Database ---
+sqlalchemy>=2.0
+alembic>=1.13
+
+# --- Collection ---
+aiohttp>=3.9
+feedparser>=6.0
+python-dateutil>=2.8
+
+# --- LLM / Processing ---
+# Ollama est un service externe, pas de dépendance pip
+# Le client HTTP aiohttp est déjà inclus
+
+# --- API REST ---
+fastapi>=0.109
+uvicorn[standard]>=0.27
+pydantic>=2.5
+
+# --- Dashboard ---
+streamlit>=1.31
+plotly>=5.18
+pandas>=2.1
+requests>=2.31
+
+# --- Scheduler ---
+apscheduler>=3.10
+
+# --- Export ---
+# stix2>=3.0  # Optionnel, nous générons le JSON directement
+
+# --- Utilitaires ---
+beautifulsoup4>=4.12
+lxml>=5.1

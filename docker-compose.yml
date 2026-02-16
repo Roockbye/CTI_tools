@@ -1,0 +1,98 @@
+# ============================================================================
+# CTI Sentinel - Docker Compose
+# Déploiement complet avec Ollama pour le LLM local
+# ============================================================================
+
+version: "3.9"
+
+services:
+  # ==========================================================================
+  # Ollama - Serveur LLM local
+  # ==========================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cti-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Si pas de GPU, commenter le bloc deploy ci-dessus
+
+  # ==========================================================================
+  # CTI Sentinel - Scheduler (collecte + traitement + alertes)
+  # ==========================================================================
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti-scheduler
+    restart: unless-stopped
+    command: python main.py scheduler
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./backups:/app/backups
+      - ./config:/app/config
+    depends_on:
+      - ollama
+
+  # ==========================================================================
+  # CTI Sentinel - API REST
+  # ==========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti-api
+    restart: unless-stopped
+    command: python main.py api --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+    depends_on:
+      - scheduler
+
+  # ==========================================================================
+  # CTI Sentinel - Dashboard Streamlit
+  # ==========================================================================
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cti-dashboard
+    restart: unless-stopped
+    command: python main.py dashboard --port 8501
+    ports:
+      - "8501:8501"
+    environment:
+      - CTI_API_URL=http://api:8000/api
+    env_file:
+      - .env
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - api
+
+volumes:
+  ollama_data:
+    driver: local
